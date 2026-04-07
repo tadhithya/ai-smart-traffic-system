@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Multi Road Traffic AI</title>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body{
+            font-family: Arial;
+            text-align:center;
+            background:#f5f7fa;
+        }
+
+        input, button{
+            padding:10px;
+            margin:5px;
+        }
+
+        table{
+            margin:auto;
+            border-collapse: collapse;
+        }
+
+        th, td{
+            padding:10px;
+            border:1px solid #999;
+        }
+    </style>
+</head>
+<body>
+
+<h1>🚦 Multi-Road Traffic System</h1>
+
+<form method="POST" enctype="multipart/form-data">
+
+    <input type="number" name="roadCount" id="roadCount" placeholder="Number of roads">
+
+    <button type="button" onclick="generate()">Generate Inputs</button>
+
+    <div id="inputs"></div>
+
+    <button type="submit">Analyze</button>
+
+</form>
+
+<hr>
+
+<a href="/live">
+    <button>🎥 Start Live Detection</button>
+</a>
+
+{% if results %}
+
+<h2>📊 Results</h2>
+
+<table>
+<tr>
+<th>Road</th>
+<th>Vehicles</th>
+<th>Density</th>
+<th>Green Time</th>
+</tr>
+
+{% for r in results %}
+<tr>
+<td>{{ r.name }}</td>
+<td>{{ r.count }}</td>
+<td>{{ r.density }}</td>
+<td>{{ r.time }}</td>
+</tr>
+{% endfor %}
+</table>
+
+<h2>🚦 Priority Order</h2>
+<ol>
+{% for p in priority %}
+<li>{{ p.name }} ({{ p.count }} vehicles)</li>
+{% endfor %}
+</ol>
+
+<canvas id="trafficChart" width="400" height="200"></canvas>
+
+<!-- ✅ FIXED CHART -->
+<script>
+const labels = {{ results | map(attribute='name') | list | tojson }};
+const data = {{ results | map(attribute='count') | list | tojson }};
+
+if(labels.length > 0){
+    new Chart(document.getElementById("trafficChart"), {
+        type: "bar",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Vehicle Count",
+                data: data
+            }]
+        }
+    });
+}
+</script>
+
+{% endif %}
+
+<script>
+function generate(){
+    const count = document.getElementById("roadCount").value;
+    const div = document.getElementById("inputs");
+
+    if(!count || count < 1){
+        alert("Enter valid number of roads");
+        return;
+    }
+
+    div.innerHTML = "";
+
+    for(let i=1;i<=count;i++){
+        div.innerHTML += `
+            <h3>Road ${i}</h3>
+            <input type="text" name="name_${i}" placeholder="Road Name" required><br>
+            <input type="file" name="video_${i}" accept="video/*" required><br><br>
+        `;
+    }
+}
+</script>
+
+</body>
+</html>

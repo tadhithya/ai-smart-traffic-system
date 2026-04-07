@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>AI Traffic Control</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+
+/* 🌌 BACKGROUND */
+body{
+    margin:0;
+    font-family:"Segoe UI",sans-serif;
+    background: radial-gradient(circle at top,#0f172a,#020617);
+    color:white;
+}
+
+/* HEADER */
+header{
+    text-align:center;
+    font-size:34px;
+    padding:25px;
+    font-weight:600;
+    letter-spacing:1px;
+    position:relative;
+}
+
+header::after{
+    content:"";
+    width:120px;
+    height:4px;
+    background:linear-gradient(90deg,#3b82f6,#22c55e);
+    display:block;
+    margin:10px auto;
+    border-radius:10px;
+}
+
+/* MAIN LAYOUT */
+.main{
+    display:grid;
+    grid-template-columns: 1fr 2fr;
+    gap:20px;
+    padding:20px;
+}
+
+/* CARD */
+.card{
+    background:rgba(255,255,255,0.05);
+    backdrop-filter:blur(15px);
+    border-radius:20px;
+    padding:20px;
+    box-shadow:0 10px 40px rgba(0,0,0,0.5);
+    border:1px solid rgba(59,130,246,0.2);
+    transition:0.3s;
+    animation:fadeUp 0.6s ease;
+}
+
+.card:hover{
+    transform:translateY(-5px);
+    border:1px solid rgba(34,197,94,0.6);
+}
+
+@keyframes fadeUp{
+    from{opacity:0; transform:translateY(20px);}
+    to{opacity:1; transform:translateY(0);}
+}
+
+/* INPUT */
+input{
+    width:100%;
+    padding:12px;
+    margin:10px 0;
+    border:none;
+    border-radius:10px;
+}
+
+/* BUTTON */
+button{
+    width:100%;
+    padding:14px;
+    margin-top:10px;
+    border:none;
+    border-radius:999px;
+    background:linear-gradient(135deg,#3b82f6,#22c55e);
+    color:white;
+    font-weight:bold;
+    cursor:pointer;
+    transition:0.3s;
+}
+
+button:hover{
+    transform:scale(1.05);
+    box-shadow:0 0 15px #22c55e;
+}
+
+/* VIDEO */
+.video{
+    width:100%;
+    height:350px;
+    border-radius:15px;
+    object-fit:cover;
+    border:2px solid rgba(34,197,94,0.5);
+}
+
+/* STATUS */
+.status{
+    margin-top:12px;
+    padding:10px;
+    border-radius:10px;
+    background:linear-gradient(135deg,#22c55e20,#3b82f620);
+    border:1px solid #22c55e50;
+    font-size:14px;
+}
+
+/* BOTTOM GRID */
+.bottom{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+    gap:20px;
+    padding:20px;
+}
+
+/* SIGNAL */
+.signal{
+    display:flex;
+    justify-content:space-between;
+    margin:8px 0;
+}
+
+.light{
+    width:18px;
+    height:18px;
+    border-radius:50%;
+}
+
+.red{background:#ef4444;}
+.green{background:#22c55e;}
+
+/* HEATMAP */
+.box{
+    width:80px;
+    height:60px;
+    margin:5px;
+    border-radius:10px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    font-size:12px;
+}
+
+/* HUD OVERLAY */
+.hud{
+    position:absolute;
+    bottom:10px;
+    left:10px;
+    background:rgba(0,0,0,0.7);
+    padding:10px;
+    border-radius:10px;
+    font-size:13px;
+    color:#22c55e;
+    font-family:monospace;
+}
+
+</style>
+</head>
+
+<body>
+
+<header>🚦 AI Smart Traffic Control</header>
+
+<div class="main">
+
+<!-- CONTROL PANEL -->
+<div class="card">
+<h3>🚧 Control Panel</h3>
+
+<input type="number" id="roadCount" placeholder="Number of roads">
+
+<button onclick="generate()">Generate Inputs</button>
+
+<form method="POST" enctype="multipart/form-data" id="form">
+<div id="inputs"></div>
+<button type="submit">Analyze Traffic</button>
+</form>
+
+<div id="loading">⏳ Processing...</div>
+
+<div class="status">🟢 System Active</div>
+</div>
+
+<!-- LIVE MONITOR -->
+<div class="card">
+<h3>📡 Live Monitoring</h3>
+
+<div style="position:relative;">
+    <img src="/video_feed" class="video">
+
+    <!-- HUD -->
+    <div class="hud">
+        ● AI ACTIVE<br>
+        ● LIVE ANALYSIS<br>
+        ● REAL-TIME DETECTION
+    </div>
+</div>
+
+<div class="status">🎥 Simulation Mode • AI Running</div>
+</div>
+
+</div>
+
+{% if results %}
+
+<div id="data"
+data-results='{{ results | tojson | safe }}'
+data-priority='{{ priority | tojson | safe }}'></div>
+
+<div class="bottom">
+
+<!-- AI PANEL -->
+<div class="card">
+<h3>🧠 AI Decision</h3>
+<div id="aiPanel"></div>
+</div>
+
+<!-- SIGNAL -->
+<div class="card">
+<h3>🚦 Signal Control</h3>
+<div id="signals"></div>
+<h4 id="timer"></h4>
+</div>
+
+<!-- HEATMAP -->
+<div class="card">
+<h3>🔥 Heatmap</h3>
+<div id="heat"></div>
+</div>
+
+<!-- CHART -->
+<div class="card">
+<h3>📊 Traffic Data</h3>
+<canvas id="chart"></canvas>
+</div>
+
+</div>
+
+<script>
+const dataDiv=document.getElementById("data");
+const results=JSON.parse(dataDiv.dataset.results);
+const priority=JSON.parse(dataDiv.dataset.priority);
+
+/* AI PANEL */
+document.getElementById("aiPanel").innerHTML=`
+🚦 Priority: <b>${priority[0].name}</b><br>
+🚗 Vehicles: ${priority[0].count}<br>
+⏱ Time: ${priority[0].time}s
+`;
+
+/* HEATMAP */
+const heat=document.getElementById("heat");
+results.forEach(r=>{
+    let c="#22c55e";
+    if(r.count>10)c="#eab308";
+    if(r.count>20)c="#f97316";
+    if(r.count>30)c="#ef4444";
+
+    heat.innerHTML+=`<div class="box" style="background:${c}">
+    ${r.name}</div>`;
+});
+
+/* CHART */
+new Chart(document.getElementById("chart"),{
+type:"bar",
+data:{
+labels:results.map(x=>x.name),
+datasets:[{data:results.map(x=>x.count)}]
+}
+});
+
+/* SIGNAL */
+let i=0,timeLeft=0;
+
+function cycle(){
+    const cur=priority[i];
+    timeLeft=cur.time;
+
+    update();
+    timer();
+
+    setTimeout(()=>{
+        i=(i+1)%priority.length;
+        cycle();
+    },cur.time*1000);
+}
+
+function update(){
+    const s=document.getElementById("signals");
+    s.innerHTML="";
+
+    priority.forEach((p,index)=>{
+        s.innerHTML+=`
+        <div class="signal">
+        ${p.name}
+        <div class="light ${index===i?'green':'red'}"></div>
+        </div>`;
+    });
+}
+
+function timer(){
+    const t=document.getElementById("timer");
+
+    const inter=setInterval(()=>{
+        t.innerText="⏱ "+timeLeft+" sec";
+        timeLeft--;
+        if(timeLeft<0)clearInterval(inter);
+    },1000);
+}
+
+cycle();
+</script>
+
+{% endif %}
+
+<script>
+function generate(){
+    const n=document.getElementById("roadCount").value;
+    const div=document.getElementById("inputs");
+    div.innerHTML="";
+    for(let i=1;i<=n;i++){
+        div.innerHTML+=`
+        <input name="name_${i}" placeholder="Road ${i}">
+        <input type="file" name="video_${i}">
+        `;
+    }
+}
+
+document.getElementById("form").addEventListener("submit",()=>{
+    document.getElementById("loading").style.display="block";
+});
+</script>
+
+</body>
+</html>
